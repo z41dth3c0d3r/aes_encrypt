@@ -44,15 +44,17 @@ void PrintBytes(IN BYTE* pbPrintData, IN DWORD cbDataLen)
 
 }
 
-LPTSTR ReadFileData(LPTSTR lptFileName) {
+PBYTE ReadFileData(LPTSTR lptFileName) {
     HANDLE hFile;
-    LPTSTR lptFileData = NULL;
-    hFile = CreateFileW(lptFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+    PBYTE pbFileData = NULL;
+
+    hFile = CreateFile(lptFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hFile == INVALID_HANDLE_VALUE) {
         printf("[-] Error opening the input file.\n");
         return NULL;
     }
     _tprintf(TEXT("[+] Opened the file \"%s\" successfully.\n"), lptFileName);
+
     DWORD cbinputFileSize = GetFileSize(hFile, NULL);
     if (cbinputFileSize == INVALID_FILE_SIZE) {
         printf("[-] Error getting input file size.\n");
@@ -60,9 +62,9 @@ LPTSTR ReadFileData(LPTSTR lptFileName) {
         return NULL;
     }
 
-    lptFileData = static_cast<LPTSTR>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, (cbinputFileSize + 1) * sizeof(TCHAR)));
+    pbFileData = static_cast<BYTE*>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, (cbinputFileSize + 1) * sizeof(char)));
 
-    if (!lptFileData) {
+    if (!pbFileData) {
         printf("[-] Error occured when allocating memory in heap.\n");
         CloseHandle(hFile);
         return NULL;
@@ -70,23 +72,23 @@ LPTSTR ReadFileData(LPTSTR lptFileName) {
 
     printf("[+] Size of the file : %d bytes.\n", cbinputFileSize);
     DWORD bytesRead;
-    if (!ReadFile(hFile, lptFileData, cbinputFileSize, &bytesRead, NULL)) {
+    if (!ReadFile(hFile, pbFileData, cbinputFileSize, &bytesRead, NULL)) {
         printf("[-] Error reading from the input file.\n");
         CloseHandle(hFile);
-        HeapFree(GetProcessHeap(), 0, lptFileData);
+        HeapFree(GetProcessHeap(), 0, pbFileData);
         return NULL;
     }
 
-    lptFileData[cbinputFileSize] = TEXT('\0');
+    pbFileData[cbinputFileSize] = '\0';
 
     printf("[+] Read bytes from the input file : %d bytes.\n", bytesRead);
     CloseHandle(hFile);
 
 
-    return lptFileData;
+    return pbFileData;
 }
 
-BOOL WriteDataToFile(LPTSTR lptData, LPTSTR lptWriteFileName) {
+BOOL WriteDataToFile(PBYTE pbData, LPTSTR lptWriteFileName) {
     HANDLE hFile = CreateFile(lptWriteFileName, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
     if (hFile == INVALID_HANDLE_VALUE) {
@@ -95,11 +97,11 @@ BOOL WriteDataToFile(LPTSTR lptData, LPTSTR lptWriteFileName) {
     }
 
     DWORD cbBytesWritten = 0;
-    DWORD cbBytesToWrite = static_cast<DWORD>(_tcslen(lptData) * sizeof(TCHAR));
+    DWORD cbBytesToWrite = static_cast<DWORD>(strlen((const char*)pbData) * sizeof(char));
 
     if (!WriteFile(
         hFile,
-        lptData,
+        pbData,
         cbBytesToWrite,
         &cbBytesWritten,
         NULL
@@ -121,64 +123,6 @@ BOOL WriteDataToFile(LPTSTR lptData, LPTSTR lptWriteFileName) {
 
 
     return TRUE;
-}
-
-LPTSTR Base64Encode(LPTSTR lptData) {
-
-    LPTSTR lptBase64EncodedData = NULL;
-
-    DWORD cbDataLength = _tcslen(lptData);
-
-    DWORD cbBase64Size = 0;
-    if (!CryptBinaryToString((const BYTE*)lptData, cbDataLength * sizeof(TCHAR), CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, NULL, &cbBase64Size)) {
-        printf("[-] Error getting Base64 encoded size.\n");
-        return NULL;
-    }
-
-    printf("[+] Base64 encoded data size: %d bytes.\n", cbBase64Size);
-
-    lptBase64EncodedData = static_cast<LPTSTR>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, cbBase64Size * sizeof(TCHAR)));
-
-    if (!lptBase64EncodedData) {
-        printf("[-] Error occured when allocating memory in heap.\n");
-        return NULL;
-    }
-
-    if (!CryptBinaryToString((const BYTE*)lptData, cbDataLength * sizeof(TCHAR), CRYPT_STRING_BASE64 | CRYPT_STRING_NOCRLF, lptBase64EncodedData, &cbBase64Size)) {
-        printf("[-] Error Base64 encoding the input data.\n");
-        HeapFree(GetProcessHeap(), 0, lptBase64EncodedData);
-        return NULL;
-    }
-
-    return lptBase64EncodedData;
-}
-
-LPTSTR Base64Decode(LPTSTR lptEncodedData) {
-    LPTSTR lptBase64DecodedData = NULL;
-    DWORD cbDecodedDataSize = 0;
-
-    DWORD cbEncodedDataLength = _tcslen(lptEncodedData);
-
-    if (!CryptStringToBinary(lptEncodedData, cbEncodedDataLength, CRYPT_STRING_BASE64, NULL, &cbDecodedDataSize, NULL, NULL)) {
-        printf("[-] Error getting Base64 decoded size.\n");
-        return NULL;
-    }
-    printf("[+] Decoded data size : %d bytes.\n", cbDecodedDataSize);
-
-    lptBase64DecodedData = static_cast<LPTSTR>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, cbDecodedDataSize * sizeof(TCHAR)));
-
-    if (!lptBase64DecodedData) {
-        printf("[-] Error occured when allocating memory in heap.\n");
-        return NULL;
-    }
-
-    if (!CryptStringToBinary(lptEncodedData, cbEncodedDataLength, CRYPT_STRING_BASE64, (BYTE*)lptBase64DecodedData, &cbDecodedDataSize, NULL, NULL)) {
-        printf("[-] Error Base64 decoding the data.\n");
-        HeapFree(GetProcessHeap(), 0, lptBase64DecodedData);
-        return NULL;
-    }
-
-    return lptBase64DecodedData;
 }
 
 PBYTE GenerateRandomBytes(ULONG cbKyeLen)
@@ -299,34 +243,41 @@ LPTSTR PByteToWideChar(PBYTE pbData) {
     return lptData;
 }
 
+PBYTE Encrypt(PBYTE pbPlainText, BCRYPT_KEY_HANDLE hKey) {
+
+}
+
+
+
+
 int _tmain(int argc, TCHAR *argv[])
 {
-    if (argc < 6 || argc > 8) {
+    if (argc < 6 || argc > 10) {
         PrintUsage();
         return EXIT_SUCCESS;
     }
 
     BOOL bInputFromFile = FALSE;
     BOOL bOutputToFile = FALSE;
-    BOOL bKeyFromFile = FALSE;
     BOOL bKeyGenerate = FALSE;
     BOOL bInputFromScreen = FALSE;
     BOOL bOutputToScreen = FALSE;
     BOOL bKeyFromScreen = FALSE;
-
+    BOOL bOutputKeyToFile = FALSE;
+    BOOL bKeyFromFile = FALSE;
+    BOOL bEncrypt = FALSE;
+    BOOL bDecrypt = FALSE;
     INT iKeyLen = 0;
     errno_t iError = 0;
 
-    LPTSTR lptInputFileName = NULL;
-    LPTSTR lptInputData = NULL;
-    LPTSTR lptOutputFileName = NULL;
-    LPTSTR lptOutputData = NULL;
-    LPTSTR lptKeyFromFile = NULL;
+    LPTSTR lptInputFile = NULL;
+    LPTSTR lptOutputFile = NULL;
+    LPTSTR lptKeyOutputFile = NULL;
+    LPTSTR lptKeyInputFile = NULL;
+
     PBYTE pbKey = NULL;
-    PBYTE pbAbsoluteKey = new BYTE[KEY_LEN];;
-    PBYTE pbBalanceKey = NULL;
-    LPTSTR lptKeyFileName = NULL;
-    LPCTSTR lpctKeyOutputFileName = TEXT("key.text");
+    PBYTE pbInputData = NULL;
+    PBYTE pbOutputData = NULL;
 
     BCRYPT_ALG_HANDLE hAesAlg = NULL;
     BCRYPT_KEY_HANDLE hKey = NULL;
@@ -339,30 +290,23 @@ int _tmain(int argc, TCHAR *argv[])
         if (_tcscmp(argv[i], TEXT("-i")) == 0) {
             if (i + 1 != argc) {
                 bInputFromFile = TRUE;
-                lptInputFileName = argv[i + 1];
+                lptInputFile = argv[i + 1];
             }
         }
         if (_tcscmp(argv[i], TEXT("-iS")) == 0) {
             if (i + 1 != argc) {
                 bInputFromScreen = TRUE;
-                lptInputData = argv[i + 1];
+                pbInputData = (BYTE*)argv[i + 1];
             }
         }
         if (_tcscmp(argv[i], TEXT("-o")) == 0) {
-            if (i + 1 != argc) {
-                bOutputToFile = TRUE;
-                lptOutputFileName = argv[i + 1];
-            }
+            bOutputToFile = TRUE;
+            if (i + 1 != argc)
+                lptOutputFile = argv[i + 1];
         }
         if (_tcscmp(argv[i], TEXT("-oS")) == 0) {
             if (i + 1 != argc) {
                 bOutputToScreen = TRUE;
-            }
-        }
-        if (_tcscmp(argv[i], TEXT("-k")) == 0) {
-            if (i + 1 != argc) {
-                bKeyFromFile = TRUE;
-                lptKeyFileName = argv[i + 1];
             }
         }
         if (_tcscmp(argv[i], TEXT("-kS")) == 0) {
@@ -377,74 +321,70 @@ int _tmain(int argc, TCHAR *argv[])
                 bKeyGenerate = TRUE;
             }
         }
+        if (_tcscmp(argv[i], TEXT("-k")) == 0) {
+            if (i + 1 != argc) {
+                bKeyFromFile = TRUE;
+                lptKeyInputFile = argv[i + 1];
+            }
+        }
+        if (_tcscmp(argv[i], TEXT("-oK")) == 0) {
+            bOutputKeyToFile = TRUE;
+            if (i + 1 != argc)
+                lptKeyOutputFile = argv[i + 1];
+        }
+        if (_tcscmp(argv[i], TEXT("-e")) == 0)
+            bEncrypt = TRUE;
+        if (_tcscmp(argv[i], TEXT("-d")) == 0)
+            bDecrypt = TRUE;
     }
 
-    if(bInputFromFile && !bInputFromScreen && lptInputFileName != NULL) {
-        lptInputData = ReadFileData(lptInputFileName);
+    if(bInputFromFile && !bInputFromScreen && lptInputFile) {
+        pbInputData = ReadFileData(lptInputFile);
     }
 
-    if (lptInputData == NULL) {
+    if (pbInputData == NULL) {
         _tprintf(TEXT("[-] '-i' or '-iS' missing from the command line argument!\n[+] Exiting!\n"));
         goto Cleanup;
     }
 
     if (!bOutputToScreen && !bOutputToFile) {
-        lpctKeyOutputFileName = TEXT("encrypted.txt");
-    }
-
-    if (bKeyFromFile && !bKeyFromScreen && !bKeyGenerate && lptKeyFileName != NULL) {
-        lptKeyFromFile = ReadFileData(lptKeyFileName);
-        iKeyLen = _tcslen(lptKeyFromFile);
-        printf("KeyfromFile : %d\n", iKeyLen);
-        pbKey = WideCharToPByte(lptKeyFromFile);
-    }
-    
-    if (!bKeyGenerate && pbKey != NULL) {
-        if (iKeyLen > KEY_LEN) {
-            iError = memmove_s(pbAbsoluteKey, KEY_LEN, pbKey, KEY_LEN);
-            if (iError != 0) {
-                _tprintf(TEXT("[-] Error on moving memory\n"));
-                goto Cleanup;
-            }
-        }
-        else if(iKeyLen == KEY_LEN) {
-            iError = memmove_s(pbAbsoluteKey, KEY_LEN, pbKey, KEY_LEN);
-            if (iError != 0) {
-                _tprintf(TEXT("[-] Error on moving memory\n"));
-                goto Cleanup;
-            }
-        }
-        else {
-            pbBalanceKey = new BYTE[KEY_LEN - iKeyLen];
-            pbBalanceKey = GenerateRandomBytes(KEY_LEN - iKeyLen);
-            iError = memmove_s(pbAbsoluteKey, KEY_LEN, pbKey, iKeyLen);
-            if (iError != 0) {
-                _tprintf(TEXT("[-] Error on moving memory\n"));
-                goto Cleanup;
-            }
-            iError = memmove_s(pbAbsoluteKey + iKeyLen, KEY_LEN, pbBalanceKey, KEY_LEN - iKeyLen);
-            if (iError != 0) {
-                _tprintf(TEXT("[-] Error on moving memory\n"));
-                goto Cleanup;
-            }
-        }
-    }
-    if(bKeyGenerate && pbKey == NULL && !bKeyFromFile) {
-        pbKey = GenerateRandomBytes(KEY_LEN);
-
-        iError = memmove_s(pbAbsoluteKey, KEY_LEN, pbKey, KEY_LEN);
-        if (iError != 0) {
-            _tprintf(TEXT("[-] Error on moving memory\n"));
+        lptOutputFile = static_cast<LPTSTR>(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, 10 * sizeof(TCHAR)));
+        if (!lptOutputFile) {
+            printf("[-] Memory allocation failed for output filename buffer.\n");
             goto Cleanup;
         }
+        if (bEncrypt)
+            _tcscpy_s(lptOutputFile, 10, TEXT("encrypted.txt"));
+        else
+            _tcscpy_s(lptOutputFile, 10, TEXT("decrypted.txt"));
+
     }
 
-    if (pbKey == NULL) {
-        _tprintf(TEXT("[+] '-k' or '-kS' or '-kG' missing from the command line argument!\n[+] Exiting!\n"));
+    if (bKeyFromFile && lptKeyInputFile) {
+        pbKey = ReadFileData(lptKeyInputFile);
+        iKeyLen = strlen((char*)pbKey);
+    }
+
+    if ((bKeyFromScreen || bKeyFromFile) && iKeyLen != KEY_LEN) {
+        _tprintf(TEXT("[-] Key's length should be %d characters.\n"), KEY_LEN);
         goto Cleanup;
     }
 
-    PrintBytes(pbAbsoluteKey, KEY_LEN);
+    if (bKeyGenerate && pbKey == NULL) {
+        pbKey = GenerateRandomBytes(KEY_LEN);
+    }
+
+    if (bKeyGenerate || bOutputKeyToFile) {
+        if (lptKeyOutputFile) WriteDataToFile(pbKey, lptKeyOutputFile);
+        else WriteDataToFile(pbKey, (LPTSTR)TEXT("key.bin"));
+    }
+
+    if (pbKey == NULL) {
+        _tprintf(TEXT("[+] '-kS' or '-kG' or '-k' missing from the command line argument!\n[+] Exiting!\n"));
+        goto Cleanup;
+    }
+
+    PrintBytes(pbKey, KEY_LEN);
 
     return EXIT_SUCCESS;
 
@@ -686,22 +626,11 @@ Cleanup:
         HeapFree(GetProcessHeap(), 0, pbKeyObject);
     if (pbIV)
         HeapFree(GetProcessHeap(), 0, pbIV);
-    if (lptInputFileName)
-        HeapFree(GetProcessHeap(), 0, lptInputFileName);
-    if (lptInputData)
-        HeapFree(GetProcessHeap(), 0, lptInputData);
-    if(lptKeyFromFile)
-        HeapFree(GetProcessHeap(), 0, lptKeyFromFile);
-    if (lptOutputFileName)
-        HeapFree(GetProcessHeap(), 0, lptOutputFileName);
-    if (lptOutputData)
-        HeapFree(GetProcessHeap(), 0, lptOutputData);
-    if (pbKey)
+    if (pbInputData && bInputFromFile)
+        HeapFree(GetProcessHeap(), 0, pbInputData);
+    if (bKeyGenerate && pbKey)
         HeapFree(GetProcessHeap(), 0, pbKey);
-    if (pbAbsoluteKey)
-        delete[] pbAbsoluteKey;
-    if(pbBalanceKey)
-        delete[] pbAbsoluteKey;
-    if (lptKeyFileName && _tcscmp(lptKeyFileName, TEXT("key.txt")) != 0)
-        HeapFree(GetProcessHeap(), 0, lptKeyFileName);
+
+    /*if (pbOutputData)
+        HeapFree(GetProcessHeap(), 0, pbOutputData);*/
 }

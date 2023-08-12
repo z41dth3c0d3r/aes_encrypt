@@ -2,6 +2,6 @@
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerCommandArguments> -iS test -oS test.enc.txt -kS abcdefghijklmno -e</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments> -iS zaid -oS -k D:\\Research\\AESEncrypt\\x64\\Debug\\key.txt -e</LocalDebuggerCommandArguments>
   </PropertyGroup>
 </Project>
