@@ -2,6 +2,6 @@
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
-    <LocalDebuggerCommandArguments> -iS zaid -oS -k D:\\Research\\AESEncrypt\\x64\\Debug\\key.txt -e</LocalDebuggerCommandArguments>
+    <LocalDebuggerCommandArguments> -iS "Hello my name is zaid!" -o D:\\Research\\AESEncrypt\\x64\\Debug\\zaid.bin -e</LocalDebuggerCommandArguments>
   </PropertyGroup>
 </Project>
